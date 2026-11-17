@@ -72,13 +72,7 @@ export class GroupsController {
     );
   }
 
-  @Post(':id/invite/refresh')
-  refreshInvite(@Req() req: Request, @Param('id') id: string) {
-    return this.groups.refreshInvite(
-      id,
-      (req as any).user.id,
-    );
-  }
+ 
 
   @Post(':id/leave')
   leave(@Req() req: Request, @Param('id') id: string) {
