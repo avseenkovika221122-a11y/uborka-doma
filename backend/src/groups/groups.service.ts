@@ -11,7 +11,7 @@ import { EventsGateway } from '../events.gateway';
 const digest = (value: string) =>
   createHash('sha256').update(value).digest('hex');
 
-const generateInviteCode = (groupId: string, version: number) => {
+const generateInviteCode = (groupId: string) => {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
@@ -19,9 +19,9 @@ const generateInviteCode = (groupId: string, version: number) => {
   }
 
   return createHmac('sha256', secret)
-    .update(`${groupId}:${version}`)
+    .update(groupId)
     .digest('hex')
-    .slice(0, 16)
+    .slice(0, 12)
     .toUpperCase();
 };
 
@@ -60,51 +60,43 @@ export class GroupsService {
   }
 
   async create(userId: string, name: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const group = await tx.householdGroup.create({
-        data: {
-          name: name.trim(),
-          members: {
-            create: {
-              userId,
-              role: 'OWNER',
-            },
+    const group = await this.prisma.householdGroup.create({
+      data: {
+        name: name.trim(),
+        members: {
+          create: {
+            userId,
+            role: 'OWNER',
           },
         },
-        select: {
-          id: true,
-          name: true,
-          members: {
-            select: {
-              userId: true,
-              role: true,
-            },
+      },
+      select: {
+        id: true,
+        name: true,
+        members: {
+          select: {
+            userId: true,
+            role: true,
           },
-          inviteVersion: true,
         },
-      });
-
-      const code = generateInviteCode(
-        group.id,
-        group.inviteVersion,
-      );
-
-      await tx.invitation.create({
-        data: {
-          groupId: group.id,
-          codeHash: digest(code),
-          expiresAt: new Date(Date.now() + 365 * 86400000),
-          usesLimit: 2147483647,
-        },
-      });
-
-      const { inviteVersion, ...result } = group;
-
-      return {
-        ...result,
-        inviteCode: code,
-      };
+      },
     });
+
+    const code = generateInviteCode(group.id);
+
+    await this.prisma.invitation.create({
+      data: {
+        groupId: group.id,
+        codeHash: digest(code),
+        expiresAt: new Date(Date.now() + 365 * 86400000),
+        usesLimit: 2147483647,
+      },
+    });
+
+    return {
+      ...group,
+      inviteCode: code,
+    };
   }
 
   async join(userId: string, codeRaw: string) {
@@ -188,126 +180,34 @@ export class GroupsService {
     return member;
   }
 
-  // Получить действующий код приглашения
   async createInvite(groupId: string, userId: string) {
     const member = await this.assertMember(groupId, userId);
 
     if (member.role !== 'OWNER') {
       throw new ForbiddenException(
-        'Только владелец может создавать приглашения',
+        'Только владелец может получать код приглашения',
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const group = await tx.householdGroup.findUnique({
-        where: { id: groupId },
-        select: { inviteVersion: true },
-      });
+    const code = generateInviteCode(groupId);
+    const codeHash = digest(code);
 
-      if (!group) {
-        throw new NotFoundException('Группа не найдена');
-      }
-
-      const code = generateInviteCode(
-        groupId,
-        group.inviteVersion,
-      );
-
-      const codeHash = digest(code);
-
-      const existing = await tx.invitation.findUnique({
-        where: { codeHash },
-      });
-
-      const expiresAt = new Date(
-        Date.now() + 365 * 86400000,
-      );
-
-      if (existing) {
-        await tx.invitation.update({
-          where: { id: existing.id },
-          data: {
-            expiresAt,
-            uses: 0,
-            usesLimit: 2147483647,
-          },
-        });
-      } else {
-        await tx.invitation.updateMany({
-          where: {
-            groupId,
-            expiresAt: { gt: new Date() },
-          },
-          data: {
-            expiresAt: new Date(),
-          },
-        });
-
-        await tx.invitation.create({
-          data: {
-            groupId,
-            codeHash,
-            expiresAt,
-            usesLimit: 2147483647,
-          },
-        });
-      }
-
-      return { code };
+    const existing = await this.prisma.invitation.findUnique({
+      where: { codeHash },
     });
-  }
 
-  // Создать новый код и отключить предыдущий
-  async refreshInvite(groupId: string, userId: string) {
-    const member = await this.assertMember(groupId, userId);
-
-    if (member.role !== 'OWNER') {
-      throw new ForbiddenException(
-        'Только владелец может обновлять приглашения',
-      );
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const now = new Date();
-
-      const group = await tx.householdGroup.update({
-        where: { id: groupId },
-        data: {
-          inviteVersion: {
-            increment: 1,
-          },
-        },
-        select: {
-          inviteVersion: true,
-        },
-      });
-
-      await tx.invitation.updateMany({
-        where: {
-          groupId,
-          expiresAt: { gt: now },
-        },
-        data: {
-          expiresAt: now,
-        },
-      });
-
-      const code = generateInviteCode(
-        groupId,
-        group.inviteVersion,
-      );
-
-      await tx.invitation.create({
+    if (!existing) {
+      await this.prisma.invitation.create({
         data: {
           groupId,
-          codeHash: digest(code),
+          codeHash,
           expiresAt: new Date(Date.now() + 365 * 86400000),
           usesLimit: 2147483647,
         },
       });
+    }
 
-      return { code };
-    });
+    return { code };
   }
 
   async leave(groupId: string, userId: string) {
