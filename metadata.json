@@ -1,0 +1,6 @@
+{
+  "name": "Уборка дома",
+  "description": "Самостоятельный веб-сервис для совместного планирования домашних обязанностей, календаря и рейтинга участников.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["REACT_FRONTEND", "NESTJS_API", "POSTGRESQL_STORAGE", "SOCKET_IO_REALTIME"]
+}

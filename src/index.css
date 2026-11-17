@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --bg-canvas: #f4f2ec;
+    --bg-card: #ffffff;
+    --ink-primary: #1d2330;
+    --ink-muted: #5e6472;
+    --line-hair: #e3e1da;
+    --accent-dark: #232a3a;
+    --anya-lime: #d4f25e;
+    --mila-blue: #4a86e8;
+    --vika-org: #ef6c4d;
+  }
+
+  html {
+    background-color: var(--bg-canvas);
+    color: var(--ink-primary);
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, 'SF Pro Text', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    scroll-padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--bg-canvas);
+    color: var(--ink-primary);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  a:focus-visible {
+    outline: 3px solid #4a86e8;
+    outline-offset: 2px;
+  }
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.field{width:100%;min-height:48px;border-radius:16px;background:#f0f2f5;padding:12px 15px;color:#1d2330;outline:none;border:1px solid transparent}.field:focus{background:white;border-color:#4a86e8}.primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border-radius:999px;background:#232a3a;color:white;padding:11px 20px;font-weight:600}.primary:disabled{opacity:.6}.secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;border-radius:999px;background:#e6ebf3;color:#1d2330;padding:9px 15px;font-size:14px;font-weight:600}.icon-btn{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#e6ebf3;color:#232a3a}.tab{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border-radius:999px;padding:11px 17px;background:white;color:#5e6472;font-size:14px}.tab-active{background:#232a3a;color:white}.link{color:#356bc1;text-decoration:underline;text-underline-offset:3px}.modal-backdrop{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:#10152288;padding:16px}.modal{width:min(100%,480px);max-height:90dvh;overflow:auto;border-radius:28px;background:white;padding:24px;box-shadow:0 20px 60px #0002}
