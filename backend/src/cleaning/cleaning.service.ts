@@ -488,6 +488,19 @@ export class CleaningService {
   async rating(groupId: string, userId: string) {
     await this.groups.assertMember(groupId, userId);
 
+    // Неделя считается с понедельника 00:00 до следующего понедельника (UTC).
+    const now = new Date();
+    const weekStart = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+    ));
+    const weekday = weekStart.getUTCDay();
+    weekStart.setUTCDate(weekStart.getUTCDate() - ((weekday + 6) % 7));
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+
     const members = await this.prisma.groupMember.findMany({
       where: { groupId },
       include: {
@@ -497,30 +510,51 @@ export class CleaningService {
       },
     });
 
-    const result = await Promise.all(
+    return Promise.all(
       members.map(async (member) => {
-        const [completed, assigned, overdue] = await Promise.all([
-          this.prisma.taskCompletion.count({
-            where: {
-              userId: member.userId,
-              task: { groupId },
-            },
-          }),
-          this.prisma.cleaningTask.count({
-            where: {
-              groupId,
-              assigneeId: member.userId,
-            },
-          }),
-          this.prisma.cleaningTask.count({
-            where: {
-              groupId,
-              assigneeId: member.userId,
-              status: 'OPEN',
-              scheduledAt: { lt: new Date() },
-            },
-          }),
-        ]);
+        const [completed, assigned, overdue, weeklyCompletions] =
+          await Promise.all([
+            this.prisma.taskCompletion.count({
+              where: {
+                userId: member.userId,
+                task: { groupId },
+              },
+            }),
+            this.prisma.cleaningTask.count({
+              where: {
+                groupId,
+                assigneeId: member.userId,
+              },
+            }),
+            this.prisma.cleaningTask.count({
+              where: {
+                groupId,
+                assigneeId: member.userId,
+                status: 'OPEN',
+                scheduledAt: { lt: new Date() },
+              },
+            }),
+            this.prisma.taskCompletion.findMany({
+              where: {
+                userId: member.userId,
+                completedAt: {
+                  gte: weekStart,
+                  lt: weekEnd,
+                },
+                task: { groupId },
+              },
+              include: {
+                task: {
+                  select: {
+                    id: true,
+                    title: true,
+                    scheduledAt: true,
+                  },
+                },
+              },
+              orderBy: { completedAt: 'desc' },
+            }),
+          ]);
 
         return {
           userId: member.userId,
@@ -529,10 +563,15 @@ export class CleaningService {
           assigned,
           overdue,
           score: completed * 10 - overdue * 3,
+          weeklyCompleted: weeklyCompletions.length,
+          weeklyTasks: weeklyCompletions.map((completion) => ({
+            id: completion.task.id,
+            title: completion.task.title,
+            completedAt: completion.completedAt,
+            scheduledAt: completion.task.scheduledAt,
+          })),
         };
       }),
     );
-
-    return result.sort((a, b) => b.score - a.score);
   }
 }
