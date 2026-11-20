@@ -449,11 +449,11 @@ export default function App(){
     </header>
 
     <div className="mx-auto max-w-6xl px-4">
-      <section className="relative z-10 mx-auto mb-[-34px] flex min-h-[190px] max-w-6xl items-center px-2 sm:px-4">
+      <section className="relative z-10 mx-auto mb-[-20px] flex min-h-[110px] max-w-6xl items-center px-2 sm:px-4">
         <img
           src={mascotSrc}
           alt="Собачка-маскот"
-          className="relative z-20 -mr-5 h-[190px] w-[150px] shrink-0 self-end object-contain sm:-mr-8 sm:h-[220px] sm:w-[180px]"
+          className="relative z-20 -mr-3 h-[95px] w-[75px] shrink-0 self-end object-contain sm:-mr-4 sm:h-[110px] sm:w-[90px]"
         />
         <div className="relative z-10 mb-7 min-w-0 flex-1 rounded-[28px] bg-white px-5 py-5 text-base font-medium leading-relaxed shadow-sm sm:px-7 sm:py-6 sm:text-xl">
           {mascotMessage}
@@ -463,19 +463,6 @@ export default function App(){
 
       {err&&<div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700 flex justify-between">{err}<button onClick={()=>setErr('')}><X size={16}/></button></div>}
       {notice&&<div className="mb-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}<button className="ml-3" onClick={()=>setNotice('')}>×</button></div>}
-
-      <section className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4">
-        <div className="flex items-center gap-2">
-          <Users size={18}/>
-          <select className="bg-transparent font-semibold outline-none" value={groupId} onChange={e=>setGroupId(e.target.value)}>
-            {groups.map(r=><option key={r.group.id} value={r.group.id}>{r.group.name}</option>)}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          {group&&isOwner&&<button className="secondary" onClick={renameGroup}>Переименовать</button>}
-          <button className="secondary" onClick={()=>setShowGroup(true)}>Группы</button>
-        </div>
-      </section>
 
       {!group&&<section className="rounded-3xl bg-white p-6">
         <h2 className="text-xl font-semibold mb-3">Создай домашнюю группу</h2>
@@ -600,6 +587,23 @@ export default function App(){
               </article>;
             })}
           </div>
+          <section className="mt-6 rounded-3xl bg-[#f4f2ec] p-4 sm:p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Users size={18}/>
+              <select
+                className="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none"
+                value={groupId}
+                onChange={e=>setGroupId(e.target.value)}
+                aria-label="Выбрать домашнюю группу"
+              >
+                {groups.map(r=><option key={r.group.id} value={r.group.id}>{r.group.name}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {group&&isOwner&&<button className="secondary" onClick={renameGroup}>Переименовать</button>}
+              <button className="secondary" onClick={()=>setShowGroup(true)}>Группы</button>
+            </div>
+          </section>
         </section>}
 
         {tab==='members'&&<section className="rounded-3xl bg-white p-5 sm:p-7">
