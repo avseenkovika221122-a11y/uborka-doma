@@ -300,7 +300,7 @@ export default function App(){
   const joinGroup=async(e:React.FormEvent)=>{
     e.preventDefault();
     try{
-      const joined=await api<{id:string}>('/groups/join',{method:'POST',body:JSON.stringify({code:invite})});
+      const joined=await api<{id:string}>(`/groups/join`,{method:'POST',body:JSON.stringify({code:invite})});
       setGroupId(joined.id);
       setInvite('');
       setShowGroup(false);
@@ -392,10 +392,11 @@ export default function App(){
                 if(!d)return <span key={i}/>;
                 const dayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),d));
                 const allDone=dayTasks.length>0&&dayTasks.every(t=>t.status==='COMPLETED');
-                const dayColors=[...new Set(dayTasks.filter(t=>t.assigneeId).map(t=>t.assigneeId as string))].slice(0,3);
-                return <button key={i} onClick={()=>setSelected(d)} className={`aspect-square rounded-full text-sm relative ${sameDay(d,selected)?'bg-[#232a3a] text-white':sameDay(d,new Date())?'bg-[#d4f25e]':'hover:bg-[#f1f2ed]'}`}>
+                const dayAssigneeId=dayTasks.find(t=>t.assigneeId)?.assigneeId;
+                const dayColor=dayAssigneeId?memberColor(dayAssigneeId):undefined;
+                return <button key={i} onClick={()=>setSelected(d)} className={`aspect-square rounded-full text-sm relative ${dayColor?'text-white':sameDay(d,selected)?'bg-[#232a3a] text-white':sameDay(d,new Date())?'bg-[#d4f25e]':'hover:bg-[#f1f2ed]'} ${dayColor&&sameDay(d,selected)?'ring-2 ring-[#232a3a] ring-offset-2':''}`} style={dayColor?{backgroundColor:dayColor}:undefined}>
                   {d.getDate()}
-                  {allDone?<span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[#232a3a] text-white"><Check size={10}/></span>:dayColors.length>0&&<span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">{dayColors.map(id=><i key={id} className="h-1.5 w-1.5 rounded-full" style={{backgroundColor:memberColor(id)}}/>)}</span>}
+                  {allDone&&<span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[#232a3a] text-white"><Check size={10}/></span>}
                 </button>;
               })}
             </div>
