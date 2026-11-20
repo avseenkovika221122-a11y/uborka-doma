@@ -210,6 +210,38 @@ export class GroupsService {
     return { code };
   }
 
+  async deleteGroup(groupId: string, userId: string) {
+    const member = await this.assertMember(groupId, userId);
+
+    if (member.role !== 'OWNER') {
+      throw new ForbiddenException(
+        'Только владелец может полностью удалить группу',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        DELETE FROM "DeletedRecurringOccurrence"
+        WHERE "recurringTaskId" IN (
+          SELECT "id"
+          FROM "RecurringTask"
+          WHERE "groupId" = ${groupId}
+        )
+      `;
+
+      await tx.householdGroup.delete({
+        where: { id: groupId },
+      });
+    });
+
+    await this.events.revokeGroup(groupId);
+
+    return {
+      ok: true,
+      groupDeleted: true,
+    };
+  }
+
   async leave(groupId: string, userId: string) {
     const member = await this.assertMember(groupId, userId);
 
