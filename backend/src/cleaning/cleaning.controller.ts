@@ -1,4 +1,3 @@
-
 import {
   Body,
   Controller,
@@ -46,6 +45,18 @@ class TaskDto {
   @IsOptional()
   @IsString()
   assigneeId?: string;
+}
+
+class AddCompletedTaskDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  @Matches(/\S/)
+  title: string;
+
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
 }
 
 class UpdateTaskDto {
@@ -160,6 +171,19 @@ export class CleaningController {
     @Body() dto: TaskDto,
   ) {
     return this.cleaning.create(
+      groupId,
+      (req as any).user.id,
+      dto,
+    );
+  }
+
+  @Post('tasks/quick-complete')
+  addCompletedTask(
+    @Req() req: Request,
+    @Param('groupId') groupId: string,
+    @Body() dto: AddCompletedTaskDto,
+  ) {
+    return this.cleaning.addCompletedTask(
       groupId,
       (req as any).user.id,
       dto,
