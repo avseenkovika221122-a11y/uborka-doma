@@ -164,13 +164,8 @@ export default function App(){
     });
   },[members]);
 
-  const overdueCount=tasks.filter(t=>t.status==='OPEN'&&new Date(t.scheduledAt)<new Date()).length;
-  const mascotSrc=tab==='rating'?'/assets/dogs/sleep.webp':tab==='members'?'/assets/dogs/wave.webp':overdueCount>0?'/assets/dogs/sad.webp':'/assets/dogs/happy.webp';
-  const todayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),new Date()));
-  const todayOpenTask=todayTasks.find(t=>t.status==='OPEN');
   const nextSaturday=(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));return d;})();
   const saturdayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),nextSaturday));
-  const mascotMessage=tab==='rating'?'Посмотрим, сколько полезных дел вы сделали на этой неделе!':tab==='add'?'Запиши то, что уже успела сделать. Это дело сразу попадёт в твой список выполненного!':todayOpenTask?`Сегодня ${niceDate(new Date())}: ${todayOpenTask.assignee?.displayName||'кто-то из домашних'} — ${todayOpenTask.title.toLowerCase()}!`:todayTasks.length?`Сегодня ${niceDate(new Date())} — все запланированные дела выполнены. Отличная работа!`:`Сегодня ${niceDate(new Date())}. Можно немного отдохнуть или добавить своё дело!`;
 
   const selectedTasks=useMemo(
     ()=>tasks.filter(t=>sameDay(new Date(t.scheduledAt),selected)).sort((a,b)=>a.scheduledAt.localeCompare(b.scheduledAt)),
@@ -387,14 +382,6 @@ export default function App(){
     </header>
 
     <div className="mx-auto max-w-6xl px-4">
-      <section className="mb-6 rounded-[28px] bg-[#d4f25e] p-5 sm:p-7 flex items-center gap-4">
-        <img src={mascotSrc} alt="Собачка-маскот" className="block w-20 h-20 sm:w-28 sm:h-28 shrink-0 object-contain"/>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">Домашний помощник</p>
-          <div className="mt-2 inline-block rounded-2xl bg-white/80 px-4 py-3 text-sm sm:text-base shadow-sm">{mascotMessage}</div>
-        </div>
-      </section>
-
       {err&&<div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700 flex justify-between">{err}<button onClick={()=>setErr('')}><X size={16}/></button></div>}
       {notice&&<div className="mb-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}<button className="ml-3" onClick={()=>setNotice('')}>×</button></div>}
 
