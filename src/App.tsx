@@ -164,8 +164,75 @@ export default function App(){
     });
   },[members]);
 
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayTasks = tasks.filter(t => sameDay(new Date(t.scheduledAt), today));
+  const overdueTasks = tasks.filter(
+    t => t.status === 'OPEN' && new Date(t.scheduledAt) < startOfToday
+  );
+  const todayOpenTask = todayTasks.find(t => t.status === 'OPEN');
   const nextSaturday=(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));return d;})();
   const saturdayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),nextSaturday));
+
+  const ratingCounts = rating.map(member => ({
+    ...member,
+    completedCount: member.weeklyCompleted ?? member.weeklyTasks?.length ?? 0,
+  }));
+  const lowestCount = ratingCounts.length
+    ? Math.min(...ratingCounts.map(member => member.completedCount))
+    : 0;
+  const lowestMembers = ratingCounts.filter(member => member.completedCount === lowestCount);
+  const hasClearLowest = lowestMembers.length === 1
+    && ratingCounts.some(member => member.completedCount > lowestCount);
+  const lowestMember = hasClearLowest ? lowestMembers[0] : null;
+
+  type MascotMood = 'sleep' | 'team' | 'sad' | 'working' | 'happy' | 'calm' | 'rating-nudge';
+  const mascotMood: MascotMood = tab === 'rating'
+    ? (lowestMember ? 'rating-nudge' : 'sleep')
+    : tab === 'members'
+      ? 'team'
+      : overdueTasks.length > 0
+        ? 'sad'
+        : todayOpenTask
+          ? 'working'
+          : todayTasks.length > 0 && todayTasks.every(t => t.status === 'COMPLETED')
+            ? 'happy'
+            : 'calm';
+
+  const mascotByMood: Record<MascotMood, { image: string; message: string }> = {
+    'rating-nudge': {
+      image: '/assets/dogs/sad.webp',
+      message: `${lowestMember?.name}, пора немного помочь дому! На этой неделе у тебя пока ${lowestMember?.completedCount} ${lowestMember?.completedCount === 1 ? 'дело' : 'дел'}.`,
+    },
+    sleep: {
+      image: '/assets/dogs/sleep.webp',
+      message: ratingCounts.length && ratingCounts.every(member => member.completedCount === 0)
+        ? 'На этой неделе пока никто не отметился. Может, начнём с маленького дела?'
+        : 'Посмотрим, сколько полезных дел вы сделали на этой неделе!',
+    },
+    team: {
+      image: '/assets/dogs/wave.webp',
+      message: 'Здесь вся ваша команда!',
+    },
+    sad: {
+      image: '/assets/dogs/sad.webp',
+      message: `Есть незавершённые дела за прошлые дни. Давайте постепенно с ними разберёмся!`,
+    },
+    working: {
+      image: '/assets/dogs/vacuum.webp',
+      message: `${todayOpenTask?.assignee?.displayName || 'Кто-то из домашних'} сегодня: ${todayOpenTask?.title.toLowerCase()}!`,
+    },
+    happy: {
+      image: '/assets/dogs/happy.webp',
+      message: `Сегодня ${niceDate(today)} — все запланированные дела выполнены. Отличная работа!`,
+    },
+    calm: {
+      image: '/assets/dogs/happy.webp',
+      message: `Сегодня ${niceDate(today)}. Пока нет запланированных дел — можно немного отдохнуть!`,
+    },
+  };
+  const mascotSrc = mascotByMood[mascotMood].image;
+  const mascotMessage = mascotByMood[mascotMood].message;
 
   const selectedTasks=useMemo(
     ()=>tasks.filter(t=>sameDay(new Date(t.scheduledAt),selected)).sort((a,b)=>a.scheduledAt.localeCompare(b.scheduledAt)),
@@ -382,6 +449,18 @@ export default function App(){
     </header>
 
     <div className="mx-auto max-w-6xl px-4">
+      <section className="relative z-10 mx-auto mb-[-34px] flex min-h-[190px] max-w-6xl items-center px-2 sm:px-4">
+        <img
+          src={mascotSrc}
+          alt="Собачка-маскот"
+          className="relative z-20 -mr-5 h-[190px] w-[150px] shrink-0 self-end object-contain sm:-mr-8 sm:h-[220px] sm:w-[180px]"
+        />
+        <div className="relative z-10 mb-7 min-w-0 flex-1 rounded-[28px] bg-white px-5 py-5 text-base font-medium leading-relaxed shadow-sm sm:px-7 sm:py-6 sm:text-xl">
+          {mascotMessage}
+          <span className="absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rotate-45 rounded-bl-md bg-white" />
+        </div>
+      </section>
+
       {err&&<div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700 flex justify-between">{err}<button onClick={()=>setErr('')}><X size={16}/></button></div>}
       {notice&&<div className="mb-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}<button className="ml-3" onClick={()=>setNotice('')}>×</button></div>}
 
@@ -411,7 +490,7 @@ export default function App(){
           {([{id:'calendar',label:'График',icon:CalendarDays},{id:'add',label:'Добавить',icon:Plus},{id:'rating',label:'Рейтинг',icon:BarChart3}] as const).map(x=><button key={x.id} onClick={()=>setTab(x.id)} className={`tab ${tab===x.id?'tab-active':''}`}><x.icon size={17}/>{x.label}</button>)}
         </nav>
 
-        {tab==='calendar'&&<div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_0.85fr]">
+        {tab==='calendar'&&<div className="relative z-0 grid grid-cols-1 gap-5 pt-1 lg:grid-cols-[1fr_0.85fr]">
           <section className="rounded-3xl bg-white p-4 sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-2">
               <div className="flex gap-1">
