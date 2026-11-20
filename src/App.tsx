@@ -103,6 +103,8 @@ export default function App(){
   const [groupName,setGroupName]=useState('Наш дом');
   const [invite,setInvite]=useState('');
   const [inviteResult,setInviteResult]=useState('');
+  const [joiningGroup,setJoiningGroup]=useState(false);
+  const [creatingGroup,setCreatingGroup]=useState(false);
   const [currentPassword,setCurrentPassword]=useState('');
   const [newPassword,setNewPassword]=useState('');
 
@@ -398,27 +400,39 @@ export default function App(){
 
   const createGroup=async(e:React.FormEvent)=>{
     e.preventDefault();
+    if(creatingGroup)return;
+    setCreatingGroup(true);
+    setErr('');
     try{
       const g=await api<ApiGroup & {inviteCode:string}>('/groups',{method:'POST',body:JSON.stringify({name:groupName})});
       setInviteResult(g.inviteCode);
       await loadGroups();
       setGroupId(g.id);
-      setShowGroup(true);
+      setNotice('Группа создана! Пригласи домашних по коду.');
     }catch(e){
       setErr(e instanceof Error?e.message:'Ошибка');
+    }finally{
+      setCreatingGroup(false);
     }
   };
 
   const joinGroup=async(e:React.FormEvent)=>{
     e.preventDefault();
+    if(joiningGroup || !invite.trim())return;
+    setJoiningGroup(true);
+    setErr('');
     try{
-      const joined=await api<{id:string}>(`/groups/join`,{method:'POST',body:JSON.stringify({code:invite})});
+      const joined=await api<{id:string}>(`/groups/join`,{method:'POST',body:JSON.stringify({code:invite.trim()})});
       setGroupId(joined.id);
       setInvite('');
       setShowGroup(false);
+      setInviteResult('');
+      setNotice('Ты успешно присоединился к группе!');
       await loadGroups();
     }catch(e){
-      setErr(e instanceof Error?e.message:'Ошибка');
+      setErr(e instanceof Error?e.message:'Не удалось присоединиться к группе');
+    }finally{
+      setJoiningGroup(false);
     }
   };
 
@@ -689,14 +703,32 @@ export default function App(){
         <div className="flex justify-between mb-5"><h2 className="text-xl font-semibold">Группы и приглашения</h2><button onClick={()=>setShowGroup(false)}><X/></button></div>
         <form onSubmit={joinGroup} className="space-y-2">
           <label className="text-sm font-medium">Присоединиться по коду</label>
-          <input className="field" placeholder="Код приглашения" value={invite} onChange={e=>setInvite(e.target.value.toUpperCase())}/>
-          <button className="secondary w-full">Присоединиться</button>
+          <input
+            className="field"
+            placeholder="Код приглашения"
+            value={invite}
+            onChange={e=>setInvite(e.target.value.toUpperCase())}
+            disabled={joiningGroup}
+          />
+          <button
+            type="submit"
+            disabled={joiningGroup || !invite.trim()}
+            className={`w-full rounded-full px-5 py-4 font-semibold transition-colors ${joiningGroup ? 'cursor-wait bg-[#e5e7eb] text-[#777]' : !invite.trim() ? 'cursor-not-allowed bg-[#e5e7eb] text-[#888]' : 'bg-[#d8f45b] text-[#232a3a] hover:bg-[#c9e94b]'}`}
+          >
+            {joiningGroup ? 'Присоединяемся…' : 'Присоединиться'}
+          </button>
         </form>
         <div className="my-5 border-t"/>
         <form onSubmit={createGroup} className="space-y-2">
           <label className="text-sm font-medium">Создать новую группу</label>
-          <input className="field" value={groupName} onChange={e=>setGroupName(e.target.value)}/>
-          <button className="secondary w-full">Создать группу</button>
+          <input className="field" value={groupName} onChange={e=>setGroupName(e.target.value)} disabled={creatingGroup}/>
+          <button
+            type="submit"
+            disabled={creatingGroup || !groupName.trim()}
+            className={`w-full rounded-full px-5 py-4 font-semibold transition-colors ${creatingGroup ? 'cursor-wait bg-[#e5e7eb] text-[#777]' : !groupName.trim() ? 'cursor-not-allowed bg-[#e5e7eb] text-[#888]' : 'bg-[#d8f45b] text-[#232a3a] hover:bg-[#c9e94b]'}`}
+          >
+            {creatingGroup ? 'Создаём группу…' : 'Создать группу'}
+          </button>
         </form>
         {inviteResult&&<div className="mt-5 rounded-2xl bg-[#f4f2ec] p-4">
           <p className="text-xs text-[#777] mb-2">Код приглашения</p>
