@@ -13,7 +13,7 @@ import {
 } from './api';
 import './index.css';
 
-type Tab = 'calendar' | 'rating' | 'members';
+type Tab = 'calendar' | 'add' | 'rating' | 'members';
 
 type WeeklyRatingRow = RatingRow & {
   weeklyCompleted?: number;
@@ -82,6 +82,8 @@ export default function App(){
   const [completionOverrides,setCompletionOverrides]=useState<Record<string,boolean>>({});
   const [rating,setRating]=useState<WeeklyRatingRow[]>([]);
   const [tab,setTab]=useState<Tab>('calendar');
+  const [quickTitle,setQuickTitle]=useState('');
+  const [savingQuick,setSavingQuick]=useState(false);
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const [selected,setSelected]=useState(()=>new Date());
   const [showTask,setShowTask]=useState(false);
@@ -164,6 +166,11 @@ export default function App(){
 
   const overdueCount=tasks.filter(t=>t.status==='OPEN'&&new Date(t.scheduledAt)<new Date()).length;
   const mascotSrc=tab==='rating'?'/assets/dogs/sleep.webp':tab==='members'?'/assets/dogs/wave.webp':overdueCount>0?'/assets/dogs/sad.webp':'/assets/dogs/happy.webp';
+  const todayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),new Date()));
+  const todayOpenTask=todayTasks.find(t=>t.status==='OPEN');
+  const nextSaturday=(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));return d;})();
+  const saturdayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),nextSaturday));
+  const mascotMessage=tab==='rating'?'Посмотрим, сколько полезных дел вы сделали на этой неделе!':tab==='add'?'Запиши то, что уже успела сделать. Это дело сразу попадёт в твой список выполненного!':todayOpenTask?`Сегодня ${niceDate(new Date())}: ${todayOpenTask.assignee?.displayName||'кто-то из домашних'} — ${todayOpenTask.title.toLowerCase()}!`:todayTasks.length?`Сегодня ${niceDate(new Date())} — все запланированные дела выполнены. Отличная работа!`:`Сегодня ${niceDate(new Date())}. Можно немного отдохнуть или добавить своё дело!`;
 
   const selectedTasks=useMemo(
     ()=>tasks.filter(t=>sameDay(new Date(t.scheduledAt),selected)).sort((a,b)=>a.scheduledAt.localeCompare(b.scheduledAt)),
@@ -188,6 +195,26 @@ export default function App(){
   const refresh=async()=>{
     await loadData();
     await loadGroups();
+  };
+
+  const addQuickTask=async(e:React.FormEvent)=>{
+    e.preventDefault();
+    const cleanTitle=quickTitle.trim();
+    if(!groupId||!cleanTitle||savingQuick)return;
+    setSavingQuick(true);
+    try{
+      await api(`/groups/${groupId}/tasks/quick-complete`,{
+        method:'POST',
+        body:JSON.stringify({title:cleanTitle})
+      });
+      setQuickTitle('');
+      setNotice('Дело добавлено в выполненное');
+      await loadData();
+    }catch(e){
+      setErr(e instanceof Error?e.message:'Не удалось добавить дело');
+    }finally{
+      setSavingQuick(false);
+    }
   };
 
   const createTask=async(e:React.FormEvent)=>{
@@ -360,13 +387,12 @@ export default function App(){
     </header>
 
     <div className="mx-auto max-w-6xl px-4">
-      <section className="mb-6 rounded-[28px] bg-[#d4f25e] p-5 sm:p-7 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium">Всё по-честному и по очереди</p>
-          <h2 className="mt-1 text-2xl sm:text-3xl font-semibold">Дом становится чище вместе</h2>
-          <p className="mt-2 text-sm">Планируйте дела, отмечайте выполненное и следите за общим прогрессом.</p>
+      <section className="mb-6 rounded-[28px] bg-[#d4f25e] p-5 sm:p-7 flex items-center gap-4">
+        <img src={mascotSrc} alt="Собачка-маскот" className="block w-20 h-20 sm:w-28 sm:h-28 shrink-0 object-contain"/>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Домашний помощник</p>
+          <div className="mt-2 inline-block rounded-2xl bg-white/80 px-4 py-3 text-sm sm:text-base shadow-sm">{mascotMessage}</div>
         </div>
-        <img src={mascotSrc} alt="Собачка-маскот" className="hidden sm:block w-28 h-28 object-contain"/>
       </section>
 
       {err&&<div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700 flex justify-between">{err}<button onClick={()=>setErr('')}><X size={16}/></button></div>}
@@ -395,7 +421,7 @@ export default function App(){
 
       {group&&<>
         <nav className="mb-5 flex gap-2 overflow-x-auto">
-          {([{id:'calendar',label:'Календарь',icon:CalendarDays},{id:'rating',label:'Рейтинг',icon:BarChart3},{id:'members',label:'Участники',icon:Users}] as const).map(x=><button key={x.id} onClick={()=>setTab(x.id)} className={`tab ${tab===x.id?'tab-active':''}`}><x.icon size={17}/>{x.label}</button>)}
+          {([{id:'calendar',label:'График',icon:CalendarDays},{id:'add',label:'Добавить',icon:Plus},{id:'rating',label:'Рейтинг',icon:BarChart3}] as const).map(x=><button key={x.id} onClick={()=>setTab(x.id)} className={`tab ${tab===x.id?'tab-active':''}`}><x.icon size={17}/>{x.label}</button>)}
         </nav>
 
         {tab==='calendar'&&<div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_0.85fr]">
@@ -424,6 +450,12 @@ export default function App(){
               })}
             </div>
             <p className="mt-4 text-center text-xs text-[#777]">Выбери день, чтобы посмотреть задания</p>
+            <div className="mt-5 rounded-2xl bg-[#f4f2ec] p-4">
+              <p className="text-xs text-[#777]">Ближайшая суббота · {niceDate(nextSaturday)}</p>
+              {saturdayTasks.length
+                ? <div className="mt-2 space-y-2">{saturdayTasks.map(task=><div key={task.id} className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">{task.title}</span><span className="shrink-0 text-xs text-[#777]">{task.assignee?.displayName||'Без исполнителя'}</span></div>)}</div>
+                : <p className="mt-2 text-sm text-[#777]">Задания на эту субботу пока не появились</p>}
+            </div>
           </section>
 
           <section className="rounded-3xl bg-white p-4 sm:p-6">
@@ -457,6 +489,21 @@ export default function App(){
             </div>}
           </section>
         </div>}
+
+        {tab==='add'&&<section className="mx-auto max-w-2xl rounded-3xl bg-white p-5 sm:p-7">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold">Что ты уже сделала?</h2>
+            <p className="mt-1 text-sm text-[#777]">Добавить можно только собственное дело. Оно сразу отметится как выполненное и попадёт в недельную статистику.</p>
+          </div>
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {['Помыла окна','Убрала кухню','Убрала ванную','Почистила туалет','Вынесла мусор','Помыла холодильник'].map(item=><button key={item} type="button" onClick={()=>setQuickTitle(item)} className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${quickTitle===item?'border-[#232a3a] bg-[#f4f2ec] font-semibold':'border-[#e7e5df] hover:bg-[#f8f7f3]'}`}>{item}</button>)}
+          </div>
+          <form onSubmit={addQuickTask} className="space-y-3">
+            <label className="block text-sm font-medium" htmlFor="quick-task-title">Название своего дела</label>
+            <input id="quick-task-title" className="field" placeholder="Например, разобрала вещи в шкафу" value={quickTitle} onChange={e=>setQuickTitle(e.target.value)} required minLength={1} maxLength={120}/>
+            <button className="primary w-full" disabled={savingQuick||!quickTitle.trim()}>{savingQuick?'Добавляем…':'Отметить как выполненное'}</button>
+          </form>
+        </section>}
 
         {tab==='rating'&&<section className="rounded-3xl bg-white p-5 sm:p-7">
           <div className="mb-5">
