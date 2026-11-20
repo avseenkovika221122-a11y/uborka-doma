@@ -196,8 +196,25 @@ export class CleaningService {
       throw new ForbiddenException('Нельзя удалить чужое задание');
     }
 
-    await this.prisma.cleaningTask.delete({
-      where: { id: taskId },
+    await this.prisma.$transaction(async (tx) => {
+      if (
+        task.recurringTaskId &&
+        task.occurrenceNumber !== null
+      ) {
+        await tx.$executeRaw`
+          INSERT INTO "DeletedRecurringOccurrence"
+            ("recurringTaskId", "occurrenceNumber")
+          VALUES (
+            ${task.recurringTaskId},
+            ${task.occurrenceNumber}
+          )
+          ON CONFLICT DO NOTHING
+        `;
+      }
+
+      await tx.cleaningTask.delete({
+        where: { id: taskId },
+      });
     });
 
     this.events.emitGroupUpdate(groupId, 'task:deleted', {
@@ -375,6 +392,17 @@ export class CleaningService {
     for (const rule of rules) {
       if (!rule.assigneeIds.length) continue;
 
+      const deletedRows = await this.prisma.$queryRaw<
+        Array<{ occurrenceNumber: number }>
+      >`
+        SELECT "occurrenceNumber"
+        FROM "DeletedRecurringOccurrence"
+        WHERE "recurringTaskId" = ${rule.id}
+      `;
+      const deletedOccurrences = new Set(
+        deletedRows.map((row) => row.occurrenceNumber),
+      );
+
       const start = new Date(rule.startDate);
       const current = new Date(start);
 
@@ -398,7 +426,7 @@ export class CleaningService {
           },
         });
 
-        if (!existing) {
+        if (!existing && !deletedOccurrences.has(occurrenceNumber)) {
           await this.prisma.cleaningTask.create({
             data: {
               groupId,
