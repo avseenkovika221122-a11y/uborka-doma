@@ -15,6 +15,16 @@ import './index.css';
 
 type Tab = 'calendar' | 'rating' | 'members';
 
+type WeeklyRatingRow = RatingRow & {
+  weeklyCompleted?: number;
+  weeklyTasks?: {
+    id: string;
+    title: string;
+    completedAt: string;
+    scheduledAt: string;
+  }[];
+};
+
 const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MEMBER_COLORS = [
@@ -70,7 +80,7 @@ export default function App(){
   const [groupId,setGroupId]=useState('');
   const [tasks,setTasks]=useState<ApiTask[]>([]);
   const [completionOverrides,setCompletionOverrides]=useState<Record<string,boolean>>({});
-  const [rating,setRating]=useState<RatingRow[]>([]);
+  const [rating,setRating]=useState<WeeklyRatingRow[]>([]);
   const [tab,setTab]=useState<Tab>('calendar');
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const [selected,setSelected]=useState(()=>new Date());
@@ -116,7 +126,7 @@ export default function App(){
     if(!groupId)return;
     const [t,r]=await Promise.all([
       api<ApiTask[]>(`/groups/${groupId}/tasks`),
-      api<RatingRow[]>(`/groups/${groupId}/rating`)
+      api<WeeklyRatingRow[]>(`/groups/${groupId}/rating`)
     ]);
     setTasks(t);
     setRating(r);
@@ -449,15 +459,33 @@ export default function App(){
         </div>}
 
         {tab==='rating'&&<section className="rounded-3xl bg-white p-5 sm:p-7">
-          <div className="mb-5"><h2 className="text-xl font-semibold">Кто сколько сделал</h2><p className="text-sm text-[#777]">10 баллов за выполнение, −3 за просроченное задание</p></div>
-          <div className="space-y-4">
-            {rating.map((r,i)=><div key={r.userId} className="rounded-2xl bg-[#f4f2ec] p-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-[#d4f25e] font-bold">{i+1}</span>
-                <div className="flex-1"><p className="font-semibold">{r.name}</p><p className="text-xs text-[#777]">Выполнено: {r.completed} · Назначено: {r.assigned} · Просрочено: {r.overdue}</p></div>
-                <strong className="text-xl">{r.score}</strong>
-              </div>
-            </div>)}
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold">Что сделали за неделю</h2>
+            <p className="text-sm text-[#777]">С понедельника по воскресенье · каждое выполненное дело считается отдельно</p>
+          </div>
+          <div className="space-y-3">
+            {rating.map(member=>{
+              const weeklyTasks=member.weeklyTasks||[];
+              return <article key={member.userId} className="rounded-2xl bg-[#f4f2ec] p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-full font-semibold text-white" style={{backgroundColor:memberColor(member.userId)}}>{member.name.slice(0,1).toUpperCase()}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">{member.name}</p>
+                    <p className="text-xs text-[#777]">Выполнено за неделю</p>
+                  </div>
+                  <strong className="text-2xl tabular-nums">{member.weeklyCompleted??weeklyTasks.length}</strong>
+                  <span className="text-xs text-[#777]">дела</span>
+                </div>
+                {weeklyTasks.length
+                  ? <ul className="space-y-2 border-t border-[#e5e1d8] pt-3">
+                      {weeklyTasks.map(task=><li key={task.id} className="flex items-start justify-between gap-3 text-sm">
+                        <span className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-[#6d7d32]"/>{task.title}</span>
+                        <span className="shrink-0 text-xs text-[#888]">{new Date(task.completedAt).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</span>
+                      </li>)}
+                    </ul>
+                  : <p className="border-t border-[#e5e1d8] pt-3 text-sm text-[#888]">На этой неделе пока нет выполненных дел</p>}
+              </article>;
+            })}
           </div>
         </section>}
 
