@@ -435,7 +435,7 @@ export default function App(){
   if(loading)return <div className="min-h-screen grid place-items-center text-[#5e6472]">Загружаем…</div>;
   if(!user)return <AuthScreen onAuth={u=>{setUser(u);setNotice('Добро пожаловать!')}}/>;
 
-  return <main className="min-h-screen pb-10">
+  return <main className="min-h-screen pb-28">
     <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-5">
       <div className="flex items-center gap-3">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#d4f25e] text-2xl">🐶</div>
@@ -473,8 +473,10 @@ export default function App(){
       </section>}
 
       {group&&<>
-        <nav className="mb-5 flex gap-2 overflow-x-auto">
-          {([{id:'calendar',label:'График',icon:CalendarDays},{id:'add',label:'Добавить',icon:Plus},{id:'rating',label:'Рейтинг',icon:BarChart3}] as const).map(x=><button key={x.id} onClick={()=>setTab(x.id)} className={`tab ${tab===x.id?'tab-active':''}`}><x.icon size={17}/>{x.label}</button>)}
+        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e5e1d8] bg-[#f4f2ec]/95 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+10px)] shadow-[0_-8px_24px_rgba(35,42,58,0.08)] backdrop-blur-md">
+          <div className="mx-auto flex max-w-xl items-center justify-around gap-2">
+            {([{id:'calendar',label:'График',icon:CalendarDays},{id:'add',label:'Добавить',icon:Plus},{id:'rating',label:'Рейтинг',icon:BarChart3}] as const).map(x=><button key={x.id} onClick={()=>setTab(x.id)} className={`flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-medium transition ${tab===x.id?'bg-[#232a3a] text-white shadow-sm':'bg-white text-[#5e6472] hover:bg-[#ebeef4]'}`}><x.icon size={18}/>{x.label}</button>)}
+          </div>
         </nav>
 
         {tab==='calendar'&&<div className="relative z-0 grid grid-cols-1 gap-5 pt-1 lg:grid-cols-[1fr_0.85fr]">
