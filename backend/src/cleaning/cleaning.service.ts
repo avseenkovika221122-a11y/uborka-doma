@@ -379,13 +379,10 @@ export class CleaningService {
         const assigneeId =
           rule.assigneeIds[occurrenceNumber % rule.assigneeIds.length];
 
-        const isAlternate =
-          rule.alternateTitle &&
-          (occurrenceNumber + 1) % 4 === 0;
-
-        const title = isAlternate
-          ? rule.alternateTitle
-          : rule.title;
+        const title =
+          rule.alternateTitle && (occurrenceNumber + 1) % 4 === 0
+            ? rule.alternateTitle
+            : rule.title;
 
         const existing = await this.prisma.cleaningTask.findUnique({
           where: {
