@@ -197,24 +197,16 @@ export class CleaningService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      if (
-        task.recurringTaskId &&
-        task.occurrenceNumber !== null
-      ) {
+      if (task.recurringTaskId && task.occurrenceNumber !== null) {
         await tx.$executeRaw`
           INSERT INTO "DeletedRecurringOccurrence"
             ("recurringTaskId", "occurrenceNumber")
-          VALUES (
-            ${task.recurringTaskId},
-            ${task.occurrenceNumber}
-          )
+          VALUES (${task.recurringTaskId}, ${task.occurrenceNumber})
           ON CONFLICT DO NOTHING
         `;
       }
 
-      await tx.cleaningTask.delete({
-        where: { id: taskId },
-      });
+      await tx.cleaningTask.delete({ where: { id: taskId } });
     });
 
     this.events.emitGroupUpdate(groupId, 'task:deleted', {
@@ -376,10 +368,7 @@ export class CleaningService {
     return { ok: true };
   }
 
-  private async generateRecurringTasks(
-    groupId: string,
-    emitUpdate = true,
-  ) {
+  private async generateRecurringTasks(groupId: string, emitUpdate = true) {
     const rules = await this.prisma.recurringTask.findMany({
       where: { groupId, active: true },
     });
@@ -387,9 +376,44 @@ export class CleaningService {
     const horizon = new Date();
     horizon.setDate(horizon.getDate() + 364);
 
+    // Отключаем повторяющиеся правила-дубликаты, оставляя самое раннее.
+    const uniqueRules = new Map<string, (typeof rules)[number]>();
+    const duplicateRuleIds: string[] = [];
+
+    for (const rule of rules.sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    )) {
+      const signature = JSON.stringify({
+        title: rule.title.trim(),
+        alternateTitle: rule.alternateTitle?.trim() ?? null,
+        description: rule.description ?? null,
+        startDate: rule.startDate.toISOString(),
+        assigneeIds: rule.assigneeIds,
+      });
+
+      if (uniqueRules.has(signature)) {
+        duplicateRuleIds.push(rule.id);
+      } else {
+        uniqueRules.set(signature, rule);
+      }
+    }
+
+    if (duplicateRuleIds.length) {
+      await this.prisma.$transaction([
+        this.prisma.cleaningTask.deleteMany({
+          where: { recurringTaskId: { in: duplicateRuleIds } },
+        }),
+        this.prisma.recurringTask.updateMany({
+          where: { id: { in: duplicateRuleIds } },
+          data: { active: false },
+        }),
+      ]);
+    }
+
+    const rulesToGenerate = [...uniqueRules.values()];
     let createdAny = false;
 
-    for (const rule of rules) {
+    for (const rule of rulesToGenerate) {
       if (!rule.assigneeIds.length) continue;
 
       const deletedRows = await this.prisma.$queryRaw<
