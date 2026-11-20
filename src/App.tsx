@@ -701,6 +701,36 @@ export default function App(){
     {showGroup&&<div className="modal-backdrop" onClick={()=>setShowGroup(false)}>
       <section className="modal" onClick={e=>e.stopPropagation()}>
         <div className="flex justify-between mb-5"><h2 className="text-xl font-semibold">Группы и приглашения</h2><button onClick={()=>setShowGroup(false)}><X/></button></div>
+        <div className="mb-5 space-y-2">
+          <h3 className="text-sm font-semibold text-[#687080]">Мои группы</h3>
+          {groups.map(row=>{
+            const selected = row.group.id === groupId;
+            return <button
+              key={row.group.id}
+              type="button"
+              onClick={()=>{
+                if(selected){
+                  setShowGroup(false);
+                  return;
+                }
+                setGroupId(row.group.id);
+                setShowGroup(false);
+                setNotice(`Переключились на группу «${row.group.name}»`);
+              }}
+              className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${selected ? 'border-[#d8f45b] bg-[#f4f9d9]' : 'border-[#e5e7eb] bg-white hover:bg-[#f7f8fa]'}`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-[#232a3a]">{row.group.name}</span>
+                <span className="block text-xs text-[#7b8190]">{selected ? 'Текущая группа' : 'Нажми, чтобы переключиться'}</span>
+              </span>
+              {selected
+                ? <span className="shrink-0 rounded-full bg-[#d8f45b] px-3 py-1 text-xs font-semibold text-[#232a3a]">Выбрана</span>
+                : <span className="shrink-0 text-sm font-semibold text-[#687080]">Открыть</span>}
+            </button>;
+          })}
+          {!groups.length&&<p className="rounded-2xl bg-[#f4f2ec] p-3 text-sm text-[#777]">Пока нет доступных групп.</p>}
+        </div>
+        <div className="my-5 border-t"/>
         <form onSubmit={joinGroup} className="space-y-2">
           <label className="text-sm font-medium">Присоединиться по коду</label>
           <input
