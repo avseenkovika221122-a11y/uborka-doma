@@ -446,6 +446,39 @@ export default function App(){
     }
   };
 
+  const leaveGroup=async()=>{
+    if(!group)return;
+    const message=isOwner
+      ? members.length===1
+        ? 'Ты единственный участник. При выходе группа будет удалена. Продолжить?'
+        : 'Ты выйдешь из группы. Права владельца перейдут участнику, который присоединился раньше. Продолжить?'
+      : 'Ты выйдешь из этой группы и потеряешь к ней доступ. Продолжить?';
+    if(!confirm(message))return;
+    try{
+      await api(`/groups/${groupId}/leave`,{method:'POST'});
+      setInviteResult('');
+      setShowGroup(false);
+      await loadGroups();
+      setNotice('Ты вышел из группы');
+    }catch(e){
+      setErr(e instanceof Error?e.message:'Не удалось выйти из группы');
+    }
+  };
+
+  const deleteGroup=async()=>{
+    if(!group||!isOwner)return;
+    if(!confirm(`Удалить группу «${group.name}» без возможности восстановления? Все задания, расписания и данные группы будут удалены у всех участников.`))return;
+    try{
+      await api(`/groups/${groupId}`,{method:'DELETE'});
+      setInviteResult('');
+      setShowGroup(false);
+      await loadGroups();
+      setNotice('Группа полностью удалена');
+    }catch(e){
+      setErr(e instanceof Error?e.message:'Не удалось удалить группу');
+    }
+  };
+
   if(loading)return <div className="min-h-screen grid place-items-center text-[#5e6472]">Загружаем…</div>;
   if(!user)return <AuthScreen onAuth={u=>{setUser(u);setNotice('Добро пожаловать!')}}/>;
 
@@ -617,7 +650,7 @@ export default function App(){
             </div>
             <div className="flex flex-wrap gap-2">
               {group&&isOwner&&<button className="secondary" onClick={renameGroup}>Переименовать</button>}
-              <button className="secondary" onClick={()=>setShowGroup(true)}>Группы</button>
+              <button className="secondary" onClick={()=>{setInviteResult('');setShowGroup(true)}}>Группы</button>
             </div>
           </section>
         </section>}
@@ -637,6 +670,7 @@ export default function App(){
           <button className="secondary mt-5" onClick={async()=>{if(confirm('Покинуть эту группу?')){await api(`/groups/${groupId}/leave`,{method:'POST'});setGroupId('');await loadGroups()}}}>Покинуть группу</button>
         </section>}
       </>}
+
     </div>
 
     {showRecurring&&<div className="modal-backdrop" onClick={()=>setShowRecurring(false)}>
@@ -713,6 +747,7 @@ export default function App(){
                   setShowGroup(false);
                   return;
                 }
+                setInviteResult('');
                 setGroupId(row.group.id);
                 setShowGroup(false);
                 setNotice(`Переключились на группу «${row.group.name}»`);
@@ -731,12 +766,16 @@ export default function App(){
           {!groups.length&&<p className="rounded-2xl bg-[#f4f2ec] p-3 text-sm text-[#777]">Пока нет доступных групп.</p>}
           {group&&isOwner&&<button
             type="button"
-            onClick={makeInvite}
+            onClick={()=>{setInviteResult('');void makeInvite()}}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-[#d8f45b] px-5 py-3 font-semibold text-[#232a3a] transition-colors hover:bg-[#c9e94b]"
           >
             <Share2 size={17}/> Получить код приглашения
           </button>}
         </div>
+        {group&&<div className="mb-5 space-y-2">
+          <button type="button" onClick={leaveGroup} className="w-full rounded-full border border-[#e5e7eb] px-5 py-3 font-semibold text-[#4b5563] hover:bg-[#f7f8fa]">Выйти из группы</button>
+          {isOwner&&<button type="button" onClick={deleteGroup} className="w-full rounded-full border border-red-200 px-5 py-3 font-semibold text-red-600 hover:bg-red-50">Удалить группу</button>}
+        </div>}
         <div className="my-5 border-t"/>
         <form onSubmit={joinGroup} className="space-y-2">
           <label className="text-sm font-medium">Присоединиться по коду</label>
