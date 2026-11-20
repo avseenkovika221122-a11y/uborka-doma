@@ -17,6 +17,23 @@ type Tab = 'calendar' | 'rating' | 'members';
 
 const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const MEMBER_COLORS = [
+  '#F4A261',
+  '#6C8AE4',
+  '#2A9D8F',
+  '#C77DDB',
+  '#E76F91',
+  '#8A9A5B',
+  '#D18B47',
+];
+
+const memberColor = (userId: string) => {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
+  }
+  return MEMBER_COLORS[hash % MEMBER_COLORS.length];
+};
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const sameDay = (a: Date,b: Date) => isoDay(a)===isoDay(b);
 const niceDate = (v: string | Date) => new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',year:'numeric'}).format(v instanceof Date ? v : new Date(v));
@@ -375,9 +392,10 @@ export default function App(){
                 if(!d)return <span key={i}/>;
                 const dayTasks=tasks.filter(t=>sameDay(new Date(t.scheduledAt),d));
                 const allDone=dayTasks.length>0&&dayTasks.every(t=>t.status==='COMPLETED');
+                const dayColors=[...new Set(dayTasks.filter(t=>t.assigneeId).map(t=>t.assigneeId as string))].slice(0,3);
                 return <button key={i} onClick={()=>setSelected(d)} className={`aspect-square rounded-full text-sm relative ${sameDay(d,selected)?'bg-[#232a3a] text-white':sameDay(d,new Date())?'bg-[#d4f25e]':'hover:bg-[#f1f2ed]'}`}>
                   {d.getDate()}
-                  {allDone?<span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[#232a3a] text-white"><Check size={10}/></span>:dayTasks.length>0&&<i className={`absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full ${sameDay(d,selected)?'bg-white':'bg-[#4a86e8]'}`}/>}
+                  {allDone?<span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[#232a3a] text-white"><Check size={10}/></span>:dayColors.length>0&&<span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">{dayColors.map(id=><i key={id} className="h-1.5 w-1.5 rounded-full" style={{backgroundColor:memberColor(id)}}/>)}</span>}
                 </button>;
               })}
             </div>
@@ -393,7 +411,7 @@ export default function App(){
               </div>
             </div>
             {selectedTasks.length===0?<div className="py-12 text-center text-sm text-[#777]"><ClipboardList className="mx-auto mb-3" size={28}/>На этот день заданий пока нет</div>:<div className="space-y-3">
-              {selectedTasks.map(t=><article key={t.id} className="rounded-2xl bg-[#f4f2ec] p-4">
+              {selectedTasks.map(t=><article key={t.id} className="rounded-2xl bg-[#f4f2ec] border-l-4 p-4" style={{borderLeftColor:t.assigneeId?memberColor(t.assigneeId):'#b7bdc7'}}>
                 <div className="flex items-start gap-3">
                   <button onClick={()=>complete(t,!t.completions.some(c=>c.userId===user.id))} className={`mt-0.5 h-6 w-6 rounded-full border-2 grid place-items-center shrink-0 ${t.status==='COMPLETED'?'bg-[#232a3a] text-white border-[#232a3a]':'border-[#b7bdc7]'}`}>{t.status==='COMPLETED'&&<Check size={14}/>}</button>
                   <div className="min-w-0 flex-1">
@@ -432,7 +450,7 @@ export default function App(){
           </div>
           <div className="space-y-3">
             {members.map(m=><div key={m.userId} className="flex items-center gap-3 rounded-2xl bg-[#f4f2ec] p-4">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#d4f25e] font-semibold">{m.user.displayName.slice(0,1).toUpperCase()}</span>
+              <span className="grid h-10 w-10 place-items-center rounded-full font-semibold text-white" style={{backgroundColor:memberColor(m.userId)}}>{m.user.displayName.slice(0,1).toUpperCase()}</span>
               <div className="flex-1"><p className="font-semibold">{m.user.displayName}</p><p className="text-xs text-[#777]">{m.role==='OWNER'?'Владелец':'Участник'}</p></div>
               {isOwner&&m.role!=='OWNER'&&<button className="icon-btn" title="Удалить участника" onClick={async()=>{if(confirm('Удалить участника из группы?')){await api(`/groups/${groupId}/members/${m.userId}`,{method:'DELETE'});await loadGroups()}}}><Trash2 size={17}/></button>}
             </div>)}
