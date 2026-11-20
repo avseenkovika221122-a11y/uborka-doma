@@ -69,6 +69,7 @@ export default function App(){
   const [groups,setGroups]=useState<ApiMembership[]>([]);
   const [groupId,setGroupId]=useState('');
   const [tasks,setTasks]=useState<ApiTask[]>([]);
+  const [completionOverrides,setCompletionOverrides]=useState<Record<string,boolean>>({});
   const [rating,setRating]=useState<RatingRow[]>([]);
   const [tab,setTab]=useState<Tab>('calendar');
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
@@ -230,10 +231,22 @@ export default function App(){
   };
 
   const complete=async(t:ApiTask,done:boolean)=>{
+    setCompletionOverrides(current=>({...current,[t.id]:done}));
     try{
       await api(`/groups/${groupId}/tasks/${t.id}/completion`,{method:'POST',body:JSON.stringify({completed:done})});
-      await loadData();
+      void loadData().then(()=>{
+        setCompletionOverrides(current=>{
+          const next={...current};
+          delete next[t.id];
+          return next;
+        });
+      }).catch(e=>setErr(e instanceof Error?e.message:'Не удалось обновить данные'));
     }catch(e){
+      setCompletionOverrides(current=>{
+        const next={...current};
+        delete next[t.id];
+        return next;
+      });
       setErr(e instanceof Error?e.message:'Ошибка');
     }
   };
@@ -412,11 +425,14 @@ export default function App(){
               </div>
             </div>
             {selectedTasks.length===0?<div className="py-12 text-center text-sm text-[#777]"><ClipboardList className="mx-auto mb-3" size={28}/>На этот день заданий пока нет</div>:<div className="space-y-3">
-              {selectedTasks.map(t=><article key={t.id} className="rounded-2xl bg-[#f4f2ec] border-l-4 p-4" style={{borderLeftColor:t.assigneeId?memberColor(t.assigneeId):'#b7bdc7'}}>
+              {selectedTasks.map(t=>{
+                const isDone=completionOverrides[t.id]??(t.status==='COMPLETED');
+                const doneByMe=t.completions.some(c=>c.userId===user.id);
+                return <article key={t.id} className="rounded-2xl bg-[#f4f2ec] border-l-4 p-4" style={{borderLeftColor:t.assigneeId?memberColor(t.assigneeId):'#b7bdc7'}}>
                 <div className="flex items-start gap-3">
-                  <button onClick={()=>complete(t,!t.completions.some(c=>c.userId===user.id))} className={`mt-0.5 h-6 w-6 rounded-full border-2 grid place-items-center shrink-0 ${t.status==='COMPLETED'?'bg-[#232a3a] text-white border-[#232a3a]':'border-[#b7bdc7]'}`}>{t.status==='COMPLETED'&&<Check size={14}/>}</button>
+                  <button onClick={()=>complete(t,!(completionOverrides[t.id]??doneByMe))} className={`mt-0.5 h-6 w-6 rounded-full border-2 grid place-items-center shrink-0 ${isDone?'bg-[#232a3a] text-white border-[#232a3a]':'border-[#b7bdc7]'}`}>{isDone&&<Check size={14}/>}</button>
                   <div className="min-w-0 flex-1">
-                    <h3 className={`font-semibold ${t.status==='COMPLETED'?'line-through text-[#777]':''}`}>{t.title}</h3>
+                    <h3 className={`font-semibold ${isDone?'line-through text-[#777]':''}`}>{t.title}</h3>
                     {t.description&&<p className="text-sm text-[#777] mt-1">{t.description}</p>}
                     <p className="mt-2 text-xs text-[#777]">{t.assignee?.displayName||'Без исполнителя'} · {new Date(t.scheduledAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</p>
                     {t.recurringTaskId&&<p className="mt-1 text-xs text-[#6d7d32] flex items-center gap-1"><Repeat size={12}/> Повторяющаяся задача</p>}
@@ -426,7 +442,8 @@ export default function App(){
                     <button className="icon-btn !h-8 !w-8" onClick={()=>removeTask(t.id)} title="Удалить"><Trash2 size={15}/></button>
                   </div>
                 </div>
-              </article>)}
+              </article>;
+              })}
             </div>}
           </section>
         </div>}
