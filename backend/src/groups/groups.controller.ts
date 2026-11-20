@@ -72,11 +72,17 @@ export class GroupsController {
     );
   }
 
- 
-
   @Post(':id/leave')
   leave(@Req() req: Request, @Param('id') id: string) {
     return this.groups.leave(
+      id,
+      (req as any).user.id,
+    );
+  }
+
+  @Delete(':id')
+  deleteGroup(@Req() req: Request, @Param('id') id: string) {
+    return this.groups.deleteGroup(
       id,
       (req as any).user.id,
     );
