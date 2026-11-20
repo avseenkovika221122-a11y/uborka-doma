@@ -77,6 +77,65 @@ export class CleaningService {
     return task;
   }
 
+  async addCompletedTask(
+    groupId: string,
+    userId: string,
+    data: {
+      title: string;
+      scheduledAt?: string;
+    },
+  ) {
+    await this.groups.assertMember(groupId, userId);
+
+    const title = data.title.trim();
+    if (!title) {
+      throw new BadRequestException('Укажите название выполненного дела');
+    }
+
+    const completedAt = new Date();
+    const scheduledAt = data.scheduledAt
+      ? new Date(data.scheduledAt)
+      : completedAt;
+
+    if (Number.isNaN(scheduledAt.getTime())) {
+      throw new BadRequestException('Некорректная дата выполнения');
+    }
+
+    const task = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.cleaningTask.create({
+        data: {
+          groupId,
+          creatorId: userId,
+          title,
+          scheduledAt,
+          assigneeId: userId,
+          status: 'COMPLETED',
+          completedAt,
+        },
+      });
+
+      await tx.taskCompletion.create({
+        data: {
+          taskId: created.id,
+          userId,
+          completedAt,
+        },
+      });
+
+      return tx.cleaningTask.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          assignee: { select: { id: true, displayName: true } },
+          creator: { select: { id: true, displayName: true } },
+          completions: true,
+        },
+      });
+    });
+
+    this.events.emitGroupUpdate(groupId, 'task:created', task);
+    return task;
+  }
+
   async update(
     groupId: string,
     taskId: string,
