@@ -10,7 +10,7 @@ CREATE TABLE "RecurringTask" (
   "description" TEXT,
   "alternateTitle" TEXT,
   "startDate" TIMESTAMP(3) NOT NULL,
-  "assigneeIds" TEXT[],
+  "assigneeIds" TEXT[] NOT NULL,
   "active" BOOLEAN NOT NULL DEFAULT true,
   "creatorId" TEXT NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
