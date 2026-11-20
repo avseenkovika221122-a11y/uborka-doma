@@ -729,6 +729,13 @@ export default function App(){
             </button>;
           })}
           {!groups.length&&<p className="rounded-2xl bg-[#f4f2ec] p-3 text-sm text-[#777]">Пока нет доступных групп.</p>}
+          {group&&isOwner&&<button
+            type="button"
+            onClick={makeInvite}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#d8f45b] px-5 py-3 font-semibold text-[#232a3a] transition-colors hover:bg-[#c9e94b]"
+          >
+            <Share2 size={17}/> Получить код приглашения
+          </button>}
         </div>
         <div className="my-5 border-t"/>
         <form onSubmit={joinGroup} className="space-y-2">
