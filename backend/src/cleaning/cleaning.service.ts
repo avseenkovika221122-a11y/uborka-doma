@@ -253,7 +253,7 @@ export class CleaningService {
       },
     });
 
-    await this.generateRecurringTasks(groupId);
+    await this.generateRecurringTasks(groupId, false);
 
     this.events.emitGroupUpdate(groupId, 'task:created', {
       recurringTaskId: recurring.id,
@@ -359,13 +359,18 @@ export class CleaningService {
     return { ok: true };
   }
 
-  private async generateRecurringTasks(groupId: string) {
+  private async generateRecurringTasks(
+    groupId: string,
+    emitUpdate = true,
+  ) {
     const rules = await this.prisma.recurringTask.findMany({
       where: { groupId, active: true },
     });
 
     const horizon = new Date();
     horizon.setDate(horizon.getDate() + 364);
+
+    let createdAny = false;
 
     for (const rule of rules) {
       if (!rule.assigneeIds.length) continue;
@@ -394,7 +399,7 @@ export class CleaningService {
         });
 
         if (!existing) {
-          const task = await this.prisma.cleaningTask.create({
+          await this.prisma.cleaningTask.create({
             data: {
               groupId,
               creatorId: rule.creatorId,
@@ -413,12 +418,18 @@ export class CleaningService {
             },
           });
 
-          this.events.emitGroupUpdate(groupId, 'task:created', task);
+          createdAny = true;
         }
 
         occurrenceNumber++;
         current.setDate(current.getDate() + 7);
       }
+    }
+
+    if (createdAny && emitUpdate) {
+      this.events.emitGroupUpdate(groupId, 'task:created', {
+        generated: true,
+      });
     }
   }
 
